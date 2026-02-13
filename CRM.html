@@ -2,71 +2,78 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>BMW Sales Hub - Gestão de Oportunidades</title>
+    <title>BMW Sales Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; color: #333; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        h1 { color: #1c69d4; border-bottom: 2px solid #1c69d4; padding-bottom: 10px; }
-        .card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 8px solid #ccc; }
-        .urgente { border-left-color: #e74c3c; background: #fff5f5; } /* Alerta para atrasos */
-        .em-dia { border-left-color: #27ae60; }
-        .meta { font-size: 0.9em; color: #666; }
-        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; background: #eee; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .form-section { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background: #1c69d4; color: white; border: none; cursor: pointer; font-weight: bold; }
+        .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #1c69d4; }
+        .atrasado { border-left-color: #e74c3c; background: #fff1f1; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏎️ CRM BMW: Oportunidades da Equipa</h1>
-    <div id="lista-oportunidades">Carregando oportunidades...</div>
+    <h1>🏎️ BMW CRM - Gestão</h1>
+
+    <div class="form-section">
+        <h3>Nova Oportunidade</h3>
+        <input type="text" id="nome" placeholder="Nome do Cliente">
+        <input type="text" id="modelo" placeholder="Modelo (ex: BMW i4)">
+        <input type="datetime-local" id="data">
+        <button onclick="adicionarOportunidade()">Gravar Oportunidade</button>
+    </div>
+
+    <hr>
+    <div id="lista-oportunidades">A verificar ligação...</div>
 </div>
 
 <script>
-    // 1. CONFIGURAÇÃO (Substitua pelos dados do seu Supabase)
     const supabaseUrl = 'https://uyeaztncyroypnaccawr.supabase.co';
-    const supabaseKey = 'sb_publishable_EO8x1rKE-q2RB7WPFvxykg_c7_Q1ylF';
+    const supabaseKey = 'sb_publishable_EO8x1rKE-q2RB7WPFvxykg_c7_Q1ylF'; // Confirme se esta é a 'anon public'
     const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
     async function carregarOportunidades() {
-        // 2. BUSCAR DADOS
-        const { data, error } = await _supabase
-            .from('opportunities')
-            .select('*')
-            .order('next_contact', { ascending: true });
-
+        const { data, error } = await _supabase.from('opportunities').select('*');
+        
         if (error) {
-            document.getElementById('lista-oportunidades').innerHTML = "Erro ao ligar ao Supabase.";
+            console.error(error);
+            document.getElementById('lista-oportunidades').innerHTML = `Erro 404/400: Verifique se a tabela 'opportunities' existe no Supabase.`;
             return;
         }
 
-        // 3. MOSTRAR NO ECRÃ
-        let html = '';
-        const agora = new Date();
-
+        let html = '<h3>Lista de Contactos:</h3>';
         data.forEach(op => {
-            const dataContacto = new Date(op.next_contact);
-            const isAtrasado = dataContacto <= agora;
-            const classeUrgencia = isAtrasado ? 'urgente' : 'em-dia';
-
+            const isAtrasado = new Date(op.next_contact) < new Date();
             html += `
-                <div class="card ${classeUrgencia}">
-                    <div style="float: right"><span class="badge">${op.status}</span></div>
-                    <h3>${op.client_name} <small>(${op.car_model})</small></h3>
-                    <p>${op.notes || 'Sem observações.'}</p>
-                    <div class="meta">
-                        <strong>📅 Próximo Contacto:</strong> ${dataContacto.toLocaleString()} 
-                        ${isAtrasado ? ' <b style="color:red">⚠️ ATRASADO</b>' : ''}
-                    </div>
-                </div>
-            `;
+                <div class="card ${isAtrasado ? 'atrasado' : ''}">
+                    <strong>${op.client_name}</strong> - ${op.car_model}<br>
+                    <small>Próximo contacto: ${new Date(op.next_contact).toLocaleString()}</small>
+                </div>`;
         });
+        document.getElementById('lista-oportunidades').innerHTML = html;
+    }
 
-        document.getElementById('lista-oportunidades').innerHTML = html || "Nenhuma oportunidade encontrada.";
+    async function adicionarOportunidade() {
+        const nome = document.getElementById('nome').value;
+        const modelo = document.getElementById('modelo').value;
+        const data = document.getElementById('data').value;
+
+        const { error } = await _supabase.from('opportunities').insert([
+            { client_name: nome, car_model: modelo, next_contact: data }
+        ]);
+
+        if (error) alert("Erro ao inserir: " + error.message);
+        else {
+            alert("Sucesso!");
+            carregarOportunidades();
+        }
     }
 
     carregarOportunidades();
 </script>
-
 </body>
 </html>
